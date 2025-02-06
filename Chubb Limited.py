@@ -28,6 +28,12 @@ data.set_index('Datetime', inplace=True)
 patterns = []
 closest_pattern = 'none'
 idx_to_drop = []
+
+# ------------------------------第一二步开始------------------------------
+
+# 第一步：初步判断顶底分型，只储存最近的分型信息用作包含判断的条件
+# 第二步：根据初步顶底分型判断，更改
+
 # The columns of the data are in order: close, high, low, open, volume
 # 先判断顶底分型，然后导出处理了包含关系后的数据
 for i in range(1, len(data) - 1):
@@ -71,6 +77,13 @@ for i in range(1, len(data) - 1):
         curr[2] < prev[2] and curr[2] < next_[2]:
         patterns.append(('bottom', i))
 
+# ------------------------------第一二步开始------------------------------
+
+# ------------------------------第三步开始：标准序列化------------------------------
+
+# ------------------------------第三步结束------------------------------
+
+# ------------------------------以下为画图内容------------------------------
 
 # -------------------------------
 # 1) 构造“拐点连接线”所需的 Series
@@ -86,6 +99,7 @@ for pattern, i in patterns:
         turning_points.iloc[i] = data.iloc[i]['Low']
 
 # 用于连线的 addplot
+turning_points = turning_points.interpolate()
 apd_line = mpf.make_addplot(
     turning_points,
     type='line',       # 连线
