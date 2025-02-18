@@ -232,15 +232,101 @@ def restrict_kline_prices(data):
 tmp = clean_containing_k_lines(data)
 data_cleaned = restrict_kline_prices(tmp)
 
+# plot_candlestick_chart(data_cleaned)
+
 # 生成并绘制子图
-print('The data reduction after the containing handling:')
-print(f'Original data length: {len(original_data)}')
-print(f'Cleaned data length: {len(data_cleaned)}')
-print(f'Data shrinkage: {((len(original_data) - len(data_cleaned)) / len(original_data) * 100):.2f}%')
+# print('The data reduction after the containing handling:')
+# print(f'Original data length: {len(original_data)}')
+# print(f'Cleaned data length: {len(data_cleaned)}')
+# print(f'Data shrinkage: {((len(original_data) - len(data_cleaned)) / len(original_data) * 100):.2f}%')
 
 
 
 
-plot_candlestick_with_subplots(original_data, data_cleaned)
+# plot_candlestick_with_subplots(original_data, data_cleaned)
 
 # ------------------------------第一二步结束------------------------------
+
+# ------------------------------第三步开始：标准序列化------------------------------
+
+patterns = []
+data = data_cleaned.copy()
+
+# 1. 简单过滤顶分，低分不考虑特殊分型
+
+for i in range(1, len(data) - 1):
+    prev, curr, next_ = data.iloc[i - 1], data.iloc[i], data.iloc[i + 1]
+    # 判断顶分型
+    if curr[1] > prev[1] and curr[1] > next_[1] and \
+        curr[2] > prev[2] and curr[2] > next_[2]:
+        patterns.append(('top',i))
+
+    # 判断底分型
+    if curr[1] < prev[1] and curr[1] < next_[1] and \
+        curr[2] < prev[2] and curr[2] < next_[2]:
+        patterns.append(('bottom',i))
+
+# 2. 过滤出特殊分型并储存
+
+special_fractals = []
+
+for i in range(len(patterns) - 1):
+    f1_type, f1_idx = patterns[i]
+    f2_type, f2_idx = patterns[i + 1]
+    
+    # 1) The difference in their indices is less than 4
+    if (f2_idx - f1_idx) < 4:
+        special_fractals.append({
+            'first fractal': f1_type,
+            'first fractal index': f1_idx,
+            'second fractal': f2_type,
+            'second fractal index': f2_idx
+        })
+
+
+
+special_patterns = []
+for sf in special_fractals:
+    special_patterns.append((sf['first fractal'], sf['first fractal index']))
+    special_patterns.append((sf['second fractal'], sf['second fractal index']))
+
+print(special_patterns)
+plot_candlestick_with_patterns(data,special_patterns)
+# last_pattern_idx = -3
+# for i in range(1, len(data) - 1):
+#     prev, curr, next_ = data.iloc[i - 1], data.iloc[i], data.iloc[i + 1]
+    
+#     # 判断顶分型
+#     is_top = curr['High'] > prev['High'] and curr['High'] > next_['High'] and \
+#              curr['Low'] > prev['Low'] and curr['Low'] > next_['Low']
+
+#     # 判断底分型
+#     is_bottom = curr['High'] < prev['High'] and curr['High'] < next_['High'] and \
+#                 curr['Low'] < prev['Low'] and curr['Low'] < next_['Low']
+
+#     if is_top and is_bottom:
+#         continue  # 排除不合理情况
+
+#     if (is_top or is_bottom) and (i - last_pattern_idx > 2):
+#         if is_top:
+#             patterns.append(('top', i))
+#         else:
+#             patterns.append(('bottom', i))
+#         last_pattern_idx = i  # 更新最近的分型索引
+
+# # plot_candlestick_with_patterns(data,patterns)
+# print(type(patterns))
+# print('-'*100)
+# # 2. 处理 “最近标准分型” 规则
+# prev_pattern = None
+# indices_to_remove = []
+# for idx, (curr_pattern, i) in enumerate(sorted(patterns, key=lambda x: x[1])):  # 按 K 线索引排序
+#     if curr_pattern == prev_pattern:
+#         indices_to_remove.append(idx)
+#     else:
+#         prev_pattern = curr_pattern
+
+# for i in sorted(indices_to_remove, reverse=True):
+#     del patterns[i]
+# # 3. 重新赋值 patterns（后续的绘图代码仍然适用）
+# print(patterns)
