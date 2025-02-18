@@ -290,8 +290,52 @@ for sf in special_fractals:
     special_patterns.append((sf['first fractal'], sf['first fractal index']))
     special_patterns.append((sf['second fractal'], sf['second fractal index']))
 
-print(special_patterns)
-plot_candlestick_with_patterns(data,special_patterns)
+special_patterns = list(dict.fromkeys(special_patterns))
+
+Ni = []
+print(special_patterns[:5])
+i = 0
+while i < len(special_patterns) - 1:
+    fractal = special_patterns[i]
+    next_fractal = special_patterns[i+1]
+    if next_fractal[1] - fractal[1] < 4:
+        dict = {
+                'first fractal': fractal[0],
+                'first index': fractal[1],
+                'second fractal': next_fractal[0],
+                'second index': next_fractal[1]
+                # sec idx - first idx < 4
+                }
+        i += 2
+        Ni.append(dict)
+    else:
+        dict = {
+                'first fractal': fractal[0],
+                'first index': fractal[1],
+                'second fractal': None,
+                'second index': None
+                # sec idx - first idx < 4
+                }
+        i += 2
+        Ni.append(dict)
+
+for i in Ni:
+    print(i)
+    print('-'*10)
+
+'''
+dictionary
+{
+    'first fractal':
+    'first index'
+    'second fractal':
+    'second index':
+    # sec idx - first idx < 4
+
+}
+'''
+
+# plot_candlestick_with_patterns(data,special_patterns)
 # last_pattern_idx = -3
 # for i in range(1, len(data) - 1):
 #     prev, curr, next_ = data.iloc[i - 1], data.iloc[i], data.iloc[i + 1]
