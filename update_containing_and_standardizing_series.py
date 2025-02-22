@@ -116,8 +116,6 @@ def plot_candlestick_with_subplots(original_data, cleaned_data, ticker="CB"):
     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to fit title
     plt.show()
 
-
-
 # Define the stock ticker and the time range
 ticker = "CB"  # Chubb Limited
 # start_date = "2024-07-09"
@@ -255,16 +253,19 @@ data = data_cleaned.copy()
 # 1. 简单过滤顶分，低分不考虑特殊分型
 
 for i in range(1, len(data) - 1):
-    prev, curr, next_ = data.iloc[i - 1], data.iloc[i], data.iloc[i + 1]
-    # 判断顶分型
-    if curr[1] > prev[1] and curr[1] > next_[1] and \
-        curr[2] > prev[2] and curr[2] > next_[2]:
-        patterns.append(('top',i))
+    prev = data.iloc[i - 1]
+    curr = data.iloc[i]
+    next_ = data.iloc[i + 1]
+
+    # 判断顶分型: curr["High"] > prev["High"] & next_["High"], curr["Low"] > prev["Low"] & next_["Low"]
+    if (curr["High"] > prev["High"] and curr["High"] > next_["High"] and
+        curr["Low"] > prev["Low"] and curr["Low"] > next_["Low"]):
+        patterns.append(('top', i))
 
     # 判断底分型
-    if curr[1] < prev[1] and curr[1] < next_[1] and \
-        curr[2] < prev[2] and curr[2] < next_[2]:
-        patterns.append(('bottom',i))
+    if (curr["High"] < prev["High"] and curr["High"] < next_["High"] and
+        curr["Low"] < prev["Low"] and curr["Low"] < next_["Low"]):
+        patterns.append(('bottom', i))
 
 # 2. 过滤出特殊分型并储存
 
@@ -274,7 +275,7 @@ for i in range(len(patterns) - 1):
     f1_type, f1_idx = patterns[i]
     f2_type, f2_idx = patterns[i + 1]
     
-    # 1) The difference in their indices is less than 4
+    # 仅做一个示例条件：分型索引小于4
     if (f2_idx - f1_idx) < 4:
         special_fractals.append({
             'first fractal': f1_type,
@@ -283,8 +284,7 @@ for i in range(len(patterns) - 1):
             'second fractal index': f2_idx
         })
 
-
-
+# 转为一个可绘制的特殊分型列表
 special_patterns = []
 for sf in special_fractals:
     special_patterns.append((sf['first fractal'], sf['first fractal index']))
@@ -293,7 +293,6 @@ for sf in special_fractals:
 special_patterns = list(dict.fromkeys(special_patterns))
 
 Ni = []
-print(special_patterns[:5])
 i = 0
 while i < len(special_patterns) - 1:
     fractal = special_patterns[i]
@@ -319,9 +318,120 @@ while i < len(special_patterns) - 1:
         i += 2
         Ni.append(dict)
 
-for i in Ni:
-    print(i)
-    print('-'*10)
+# Step 1: Convert special fractals to a list of tuples
+special_patterns = []
+for sf in Ni:
+    special_patterns.append((sf['first fractal'], sf['first index'], True))
+    if sf['second fractal'] and sf['second index']:
+        special_patterns.append((sf['second fractal'], sf['second index'], True))
+
+# Step 2: Add special label to naive patterns
+all_patterns = []
+for fractal in patterns:
+    fractal_type, index = fractal
+    is_special = any(index == sp[1] for sp in special_patterns)
+    all_patterns.append((fractal_type, index, is_special))
+
+# Step 3: Sort all patterns by index
+all_patterns.sort(key=lambda x: x[1])
+
+# Step 4: Create a DataFrame
+df = pd.DataFrame(all_patterns, columns=['fractal_type', 'index', 'is_special'])
+
+# Display the DataFrame
+print(df.head())
+
+
+'''
+nedd to pack all the codes above in order to do the following job:
+
+
+如果图表中的第一个分型为特殊分型，根据返回没有标准分型的图表所在级别，
+在该级别上向前推进一倍时间，并对前面的时间进行处理试图找到离原本时间段最靠近的一个标准分型，
+如果连续推进5次没有找到标准分型返回报错(避免无限向前推进导致意外错误的情况) 
+[在实际操作情况下，交易的股票都是经过筛选的，那么这些股票会经过程序预演确保不会有这种问题] 
+如果 图表中的第一个分型为标准分型，按照该分型进行操作即可
+'''
+
+# Function to apply the rules
+def apply_fractal_rules(df):
+    # Store the resulting standard fractals
+    result = []
+
+    # Start with the first fractal as N1
+    N1 = None
+    prev_trend = 'top'  # Start as "前一个标准分型为顶分型"
+    
+    # Iterate through the fractals
+    for i in range(len(df) - 1):
+        if N1 is None:
+            N1 = df.iloc[i]
+            continue
+        
+        N2 = df.iloc[i + 1]
+
+        # Ensure N2 is of the same type (top-bottom pair)
+        if N1['fractal_type'] == N2['fractal_type']:
+            continue
+        
+        # Rule 1: N2's bottom < N1's bottom and N2's top < N1's top
+        if (N2['fractal_type'] == 'bottom' and N2['index'] < N1['index'] and 
+            N1['fractal_type'] == 'top'):
+            print(f"Rule 1 triggered: Trend maintains. N1 ({N1['index']}) discarded.")
+            N1 = N2  # Move to the next fractal
+            continue
+        
+        # Rule 2: N2's top > N1's top and N2's bottom > N1's bottom
+        if (N2['fractal_type'] == 'top' and N2['index'] > N1['index'] and 
+            N1['fractal_type'] == 'top'):
+            print(f"Rule 2 triggered: Trend reversal. N1 ({N1['index']}) becomes bottom.")
+            result.append({'fractal_type': 'bottom', 'index': N1['index'], 'is_special': N1['is_special']})
+            N1 = N2
+            prev_trend = 'bottom'  # Change state to bottom
+            continue
+        
+        # Rule 3: N2's bottom > N1's bottom and N2's top < N1's top (Convergence)
+        if (N2['fractal_type'] == 'bottom' and N2['index'] > N1['index'] and 
+            N2['index'] < N1['index'] and N1['fractal_type'] == 'top'):
+            print(f"Rule 3 triggered: Convergence. N1 ({N1['index']}) discarded.")
+            N1 = N2  # Move to the next fractal
+            continue
+        
+        # Rule 4: N2's top > N1's top and N2's bottom < N1's bottom (Expansion)
+        if (N2['fractal_type'] == 'top' and N2['index'] > N1['index'] and 
+            N2['index'] < N1['index'] and N1['fractal_type'] == 'top'):
+            # Check if N2's top is higher than the previous standard top fractal
+            higher_than_prev_top = False
+            for r in result[::-1]:
+                if r['fractal_type'] == 'top':
+                    if N2['index'] > r['index']:
+                        higher_than_prev_top = True
+                    break
+            
+            if higher_than_prev_top:
+                print(f"Rule 4 triggered: Expansion. N1 ({N1['index']}) discarded. N2 retained as both top and bottom.")
+                result.append({'fractal_type': 'top', 'index': N2['index'], 'is_special': N2['is_special']})
+                result.append({'fractal_type': 'bottom', 'index': N2['index'], 'is_special': N2['is_special']})
+            else:
+                print(f"Rule 4 triggered: Expansion. N1 ({N1['index']}) discarded.")
+            N1 = N2
+            continue
+        
+        # If no rule matches, keep the current N1 and continue
+        result.append({'fractal_type': N1['fractal_type'], 'index': N1['index'], 'is_special': N1['is_special']})
+        N1 = N2
+    
+    # Add the last N1 if it's not None
+    if N1 is not None:
+        result.append({'fractal_type': N1['fractal_type'], 'index': N1['index'], 'is_special': N1['is_special']})
+    
+    # Convert to DataFrame and return
+    result_df = pd.DataFrame(result)
+    return result_df
+
+# Apply the rules
+processed_df = apply_fractal_rules(df)
+print(processed_df.head())
 
 '''
 dictionary
