@@ -318,6 +318,9 @@ while i < len(special_patterns) - 1:
         i += 2
         Ni.append(dict)
 
+print(f'Samples of Ni[:3]: \n{Ni[:3]}')
+print('='*20)
+
 # Step 1: Convert special fractals to a list of tuples
 special_patterns = []
 for sf in Ni:
@@ -336,23 +339,61 @@ for fractal in patterns:
 all_patterns.sort(key=lambda x: x[1])
 
 # Step 4: Create a DataFrame
-df = pd.DataFrame(all_patterns, columns=['fractal_type', 'index', 'is_special'])
+all_patterns_df = pd.DataFrame(all_patterns, columns=['fractal_type', 'index', 'is_special'])
 
-# Display the DataFrame
-print(df.head())
-
-
+print('Sample of all_patterns_df.head(3):')
+print(all_patterns_df.head(3))
+print('='*20)
 '''
-nedd to pack all the codes above in order to do the following job:
-
+need to pack all the codes above in order to do the following job:
 
 如果图表中的第一个分型为特殊分型，根据返回没有标准分型的图表所在级别，
 在该级别上向前推进一倍时间，并对前面的时间进行处理试图找到离原本时间段最靠近的一个标准分型，
 如果连续推进5次没有找到标准分型返回报错(避免无限向前推进导致意外错误的情况) 
 [在实际操作情况下，交易的股票都是经过筛选的，那么这些股票会经过程序预演确保不会有这种问题] 
 如果 图表中的第一个分型为标准分型，按照该分型进行操作即可
+
+
+The information required to applying the special fractal rules:
+
+1.  N1, N2: each contains two special fractals (could be one special fractal with a None)
+2.  convert into a form that can easily extract top and botom issue
+3.  data: contain price info that can be called by indices (the indices of Ni and data is equivalent)
+4.  all_patterns_df (dict) has keys: fractal_type, index, if_special
 '''
 
+for i in range(len(Ni)-1):
+    
+    # --------dealing with N2--------
+    N1 = Ni[i]
+    N1_1_type = N1['first fractal']
+    N1_1_idx = N1['first index']
+    N1_1_price = data.iloc[N1_1_idx]
+
+    N1_2_type = N1['second fractal']
+    N1_2_idx = N1['second index']
+    N1_2_price = data.iloc[N1_2_idx]
+
+    N1_cleaned = {N1_1_type: N1_1_price, N1_2_type: N1_2_price}
+    
+    # --------dealing with N2---------
+    N2 = Ni[i+1]
+    N2_1_type = N2['first fractal']
+    N2_1_idx = N2['first index']
+    N2_1_price = data.iloc[N1_1_idx]
+    
+    N2_2_type = N2['second fractal']
+    N2_2_idx = N2['second index']
+    N2_2_price = data.iloc[N1_2_idx]
+    
+    N2_cleaned = {N2_1_type: N2_1_price, N2_2_type: N2_2_price}
+
+    # --------applying the special fractal rules---------
+    if all_patterns_df[N1_1_idx-1]['is_special'] == False \
+    and all_patterns_df[N1_1_idx-1]['fractaL_type'] == 'top':
+        a = None
+         
+            
 # Function to apply the rules
 def apply_fractal_rules(df):
     # Store the resulting standard fractals
@@ -430,8 +471,7 @@ def apply_fractal_rules(df):
     return result_df
 
 # Apply the rules
-processed_df = apply_fractal_rules(df)
-print(processed_df.head())
+processed_df = apply_fractal_rules(all_patterns_df)
 
 '''
 dictionary
